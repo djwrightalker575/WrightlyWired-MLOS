@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>MLOS UI</title></head>
+<body>
+<h1>MLOS Console</h1>
+<input id="intent" style="width:400px" placeholder="intent"/><button onclick="createRun()">Run</button>
+<h2>Runs</h2><ul id="runs"></ul>
+<h2>Approvals</h2><ul id="approvals"></ul>
+<script>
+async function load(){
+  const runs=await (await fetch('/api/runs')).json();
+  document.getElementById('runs').innerHTML=runs.map(r=>`<li>${r.id} - ${r.status} <button onclick="show('${r.id}')">view</button></li>`).join('');
+  const approvals=await (await fetch('/api/approvals?status=pending')).json();
+  document.getElementById('approvals').innerHTML=approvals.map(a=>`<li>${a.id} task=${a.task_id}<button onclick="decide('${a.id}','approve')">approve</button><button onclick="decide('${a.id}','deny')">deny</button></li>`).join('');
+}
+async function createRun(){const intent=document.getElementById('intent').value;await fetch('/api/runs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({intent})});setTimeout(load,400)}
+async function decide(id,decision){await fetch(`/api/approvals/${id}/decision`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({decision})});setTimeout(load,400)}
+async function show(id){const t=await (await fetch(`/api/runs/${id}/tasks`)).json();alert(JSON.stringify(t,null,2));}
+load(); setInterval(load,3000);
+</script>
+</body></html>
