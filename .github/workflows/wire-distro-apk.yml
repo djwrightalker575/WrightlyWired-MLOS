@@ -1,0 +1,59 @@
+name: WIRE Distro APK
+
+on:
+  push:
+    branches:
+      - wire-distro-apk-build-20260810
+    paths:
+      - 'wire-distro-android/**'
+      - '.github/workflows/wire-distro-apk.yml'
+  pull_request:
+    paths:
+      - 'wire-distro-android/**'
+      - '.github/workflows/wire-distro-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Build debug APK
+        working-directory: wire-distro-android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WIRE-Distro-debug
+          path: wire-distro-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish APK on build branch
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p wire-distro-output
+          cp wire-distro-android/app/build/outputs/apk/debug/app-debug.apk wire-distro-output/WIRE-Distro-debug.apk
+          printf 'commit=%s\nrun_id=%s\nbuilt_at=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" > wire-distro-output/build-info.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f wire-distro-output/WIRE-Distro-debug.apk wire-distro-output/build-info.txt
+          git commit -m 'Build WIRE Distro APK [skip ci]' || exit 0
+          git push origin HEAD:${GITHUB_REF_NAME}
